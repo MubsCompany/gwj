@@ -1,0 +1,142 @@
+import 'package:flutter/material.dart';
+import 'package:template/widgets/base_container_widget.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:polygon_clipper/polygon_border.dart';
+import 'package:polygon_clipper/polygon_clipper.dart';
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+  double fullWidth = MediaQuery.of(context).size.width;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("GripWorkJourney"),
+        actions: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 10),
+                padding: EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20)
+                ),
+                child: Icon(Icons.person)
+              ),
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 10),
+                padding: EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20)
+                ),
+                child: Icon(FontAwesomeIcons.signOutAlt)
+              ),
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 10),
+                padding: EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20)
+                ),
+                child: Icon(FontAwesomeIcons.question)
+              ),
+            ],
+          ),
+        ],
+        automaticallyImplyLeading: false,
+      ),
+      body: BaseContainerWidget(
+        child: Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            createHexagonButton((){},
+              fullWidth,
+              Text("G W J", style: TextStyle(fontSize: 24),)
+            ),
+            Padding(
+              padding: EdgeInsets.only(bottom: (fullWidth*7/10)-5),
+              child: createHexagonButton((){},
+                fullWidth,
+                Image(
+                  image: AssetImage("assets/icon.png"),
+                  width: 50,
+                )
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(left: (fullWidth*6/10)-5,bottom: (fullWidth*3/10)+15),
+              child: createHexagonButton((){},
+                fullWidth,
+                Image(
+                  image: AssetImage("assets/icon.png"),
+                  width: 50,
+                )
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(left: (fullWidth*6/10)-5,top: (fullWidth*3/10)+15),
+              child: createHexagonButton((){},
+                fullWidth,
+                Image(
+                  image: AssetImage("assets/icon.png"),
+                  width: 50,
+                )
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: (fullWidth*7/10)-5),
+              child: createHexagonButton((){},
+                fullWidth,
+                Image(
+                  image: AssetImage("assets/icon.png"),
+                  width: 50,
+                )
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(right: (fullWidth*6/10)-5,top: (fullWidth*3/10)+15),
+              child: createHexagonButton((){},
+                fullWidth,
+                Image(
+                  image: AssetImage("assets/icon.png"),
+                  width: 50,
+                )
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(right: (fullWidth*6/10)-5,bottom: (fullWidth*3/10)+15),
+              child: createHexagonButton((){},
+                fullWidth,
+                Image(
+                  image: AssetImage("assets/icon.png"),
+                  width: 50,
+                )
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget createHexagonButton(Function onPressed, double fullWidth, Widget child){
+    return MaterialButton(
+      onPressed: ()=> onPressed,
+      color: Colors.yellow,
+      shape: PolygonBorder(
+        sides: 6,
+        borderRadius: 5.0, // Default 0.0 degrees
+        rotate: 90.0, // Default 0.0 degrees
+        border: BorderSide(width: 2,color: Colors.black), // Default BorderSide.none
+      ),
+      child: Container(
+        width: (fullWidth*2/5),
+        height: (fullWidth*2/5),
+        child: Center(
+          child: child
+        ),
+      ),
+    );
+  }
+}

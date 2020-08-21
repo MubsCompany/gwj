@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "996732379815",
+    "firebase_url": "https://gripworkjourney.firebaseio.com",
+    "project_id": "gripworkjourney",
+    "storage_bucket": "gripworkjourney.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:996732379815:android:dd48367dbf83c10480f182",
+        "android_client_info": {
+          "package_name": "com.research.fe4gwj"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "996732379815-e2jq7k7u8f7511s02vad7q4e9s4gm0dc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANZ6EuVwT9yXbSUEnU3oJzh3N523r67co"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "996732379815-e2jq7k7u8f7511s02vad7q4e9s4gm0dc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

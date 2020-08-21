@@ -1,0 +1,26 @@
+import 'dart:convert';
+
+import 'package:localstorage/localstorage.dart';
+import 'package:template/models/User.dart';
+
+class Storage {
+  static LocalStorage storage = LocalStorage("GripWorkJourney");
+
+  // user
+  static User getUser() {
+    try {
+      return User.fromJson(json.decode(storage.getItem("user")));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static void saveUser(dynamic value) {
+    try {
+      storage.setItem("user", json.encode(value));
+    } catch (e) {
+      print(e);
+    }
+  }
+
+}

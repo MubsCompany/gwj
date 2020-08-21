@@ -1,0 +1,52 @@
+import 'package:flutter/material.dart';
+import 'package:template/blocs/mail/mail_bloc.dart';
+import 'package:template/utils/uidata.dart';
+class ListFilePage extends StatelessWidget {
+  MailBloc mailBloc;
+  String type;
+  Function(String subject,dynamic message,String signature) setContent;
+  ListFilePage(this.mailBloc,this.type,{this.setContent});
+  @override
+  Widget build(BuildContext context) {
+    mailBloc.listFile(type);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Choose $type"),
+      ),
+      body: StreamBuilder(
+        stream: mailBloc.listFileStream,
+        builder: (BuildContext ctxStream, AsyncSnapshot<List<String>> snapshot){
+          if(!snapshot.hasData) return Container();
+          return ListView.builder(
+            itemCount: snapshot.data.length,
+            itemBuilder: (ctxList,i){
+              return ListTile(
+                onTap: (){
+                  if(type == "template"){
+                    mailBloc.openTemplate(context,setContent,snapshot.data[i]);
+                  }else if(type == "pdf"){
+                    mailBloc.sendPdf(snapshot.data[i]);
+                  }
+                },
+                leading: Icon(Icons.file_download),
+                title: Text(snapshot.data[i]),
+                trailing: PopupMenuButton(
+                  onSelected: (val) => mailBloc.deleteFile(context, type, snapshot.data[i]),
+                  icon: Icon(Icons.more_vert,color: UIData.bcContactColor,),
+                  itemBuilder: (BuildContext popUpContext) {
+                    return [
+                      PopupMenuItem(
+                        value: snapshot.data[i],
+                        child: Text("Delete"),
+                      )
+                    ];
+                  },
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}

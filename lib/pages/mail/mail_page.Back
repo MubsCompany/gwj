@@ -1,0 +1,227 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:notus/convert.dart';
+import 'package:share/share.dart';
+import 'package:template/blocs/mail/mail_bloc.dart';
+import 'package:template/pages/mail/list_file_page.dart';
+import 'package:template/utils/global_function.dart';
+import 'package:template/utils/uidata.dart';
+import 'package:template/utils/validator.dart';
+import 'package:template/widgets/custom_text_form_field_widget.dart';
+import 'package:zefyr/zefyr.dart';
+class MailPage extends StatefulWidget {
+  @override
+  _MailPageState createState() => _MailPageState();
+}
+
+class _MailPageState extends State<MailPage> with ValidationMixin{
+  GlobalKey<FormState> _formKey;
+  ZefyrController _controller;
+  TextEditingController _signatureController,_fileNameController,_fileNamePdfController, _subjectController;
+  FocusNode _focusNode;
+  MailBloc mailBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _formKey = GlobalKey<FormState>();
+    _focusNode = new FocusNode();
+    mailBloc = MailBloc();
+    _signatureController = TextEditingController();
+    _fileNameController = TextEditingController();
+    _subjectController = TextEditingController();
+    _fileNamePdfController = TextEditingController();
+    mailBloc.getFileName();
+    reset();
+  }
+
+  reset([String subject = "",dynamic message,String signature = ""]){
+    setState(() {
+      final document = (message == null) ? new NotusDocument() : NotusDocument.fromJson(message);
+      _controller = new ZefyrController(document);
+      _subjectController.text = subject;
+      _signatureController.text = signature;
+    });
+  }
+  popUpAction(int index){
+    if(index == 0){
+      mailBloc.getFileName();
+      reset();
+    }else if(index == 1){
+      mailBloc.saveAsTemplate(_formKey, jsonEncode(_controller.document.toJson()));
+    }else if(index == 2){
+      showDialog(context: context,
+        builder: (BuildContext ctxDialog) {
+          return AlertDialog(
+            title: Text("Set File Name"),
+            content: CustomTextFormFieldWidget(
+              labelText: "File Name",
+              textEditingController: _fileNamePdfController,
+            ),
+            actions: <Widget>[
+              FlatButton(
+                child: Text("Cancel"),
+                onPressed: () {
+                  Navigator.of(ctxDialog).pop();
+                },
+              ),
+              FlatButton(
+                child: Text("Save"),
+                onPressed: (){
+                  var data = _controller.document.toJson();
+                  mailBloc.render(context,jsonDecode(jsonEncode(data)),_signatureController.text,_fileNamePdfController.text);
+                  Navigator.of(ctxDialog).pop();
+                },
+              ),
+            ],
+          );
+        }
+      );
+    }else if(index == 3){
+      GlobalFunction.changePage(context, ListFilePage(mailBloc,"template",setContent: reset,));
+    }else if(index == 4){
+      GlobalFunction.changePage(context, ListFilePage(mailBloc,"pdf"));
+    }
+  }
+  PopupMenuItem createPopUpItem(int val,IconData icon,String txt){
+    return PopupMenuItem(
+      value: val,
+      child: Row(
+        children: <Widget>[
+          Icon(icon),
+          SizedBox(width:10),
+          Text(txt),
+        ],
+      ),
+    );
+  }
+  @override
+  Widget build(BuildContext context) {
+    final editor = ZefyrField(
+      height: 200.0, // set the editor's height
+      decoration: InputDecoration(labelText: 'Message'),
+      controller: _controller,
+      focusNode: _focusNode,
+      autofocus: false,
+      // toolbarDelegate: ZefyrToolbarDelegate(),
+      imageDelegate: new ZefyrDefaultImageDelegate(),
+      // toolbarDelegate: ZefyrToolbarDelegate(),
+      physics: ClampingScrollPhysics(),
+    );
+    final form = Form(
+      key: _formKey,
+      child: ListView(
+        children: <Widget>[
+          Container(
+            padding: EdgeInsets.all(10),
+            width: MediaQuery.of(context).size.width,
+            color: Colors.grey,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                StreamBuilder(
+                  initialData: "-",
+                  stream: mailBloc.fileNameStream,
+                  builder: (ctxFileName,AsyncSnapshot<String> snapFileName){
+                    return Expanded(child: Text("File Name : ${snapFileName.data}"));
+                  },
+                ),
+                InkWell(
+                  onTap: ()=>showDialog(context: context,
+                    builder: (BuildContext ctxDialog) {
+                      return AlertDialog(
+                        title: Text("Set File Name"),
+                        content: CustomTextFormFieldWidget(
+                          labelText: "File Name",
+                          textEditingController: _fileNameController,
+                        ),
+                        actions: <Widget>[
+                          FlatButton(
+                            child: Text("NO"),
+                            onPressed: () {
+                              Navigator.of(ctxDialog).pop();
+                            },
+                          ),
+                          FlatButton(
+                            child: Text("YES"),
+                            onPressed: () => mailBloc.setFileName(ctxDialog,_fileNameController.text),
+                          ),
+                        ],
+                      );
+                    }
+                  ),
+                  child: Container(
+                    padding: EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white,width: 1)
+                    ),
+                    child: Text("Change"),
+                  ),
+                )
+              ],
+            ),
+          ),
+          CustomTextFormFieldWidget(
+            labelText: "Subject",
+            textEditingController: _subjectController,
+            onSaved: mailBloc.saveSubject,
+            validator: validateRequired,
+          ),
+          // TextField(decoration: InputDecoration(labelText: 'Subject')),
+          editor,
+          CustomTextFormFieldWidget(
+            labelText: "Signature",
+            textInputAction: TextInputAction.newline,
+            maxLines: null,
+            textEditingController: _signatureController,
+            onSaved: mailBloc.saveSignature,
+            validator: validateRequired,
+          ),
+          // TextField(decoration: InputDecoration(labelText: 'Signature')),
+        ],
+      ),
+    );
+
+    return Scaffold(
+      resizeToAvoidBottomPadding: true,
+      appBar: AppBar(
+        title: Text('Mail'),
+        actions: <Widget>[
+          // InkWell(
+          //   onTap: () {
+          //     var data = _controller.document.toJson();
+          //     mailBloc.render(context,jsonDecode(jsonEncode(data)),_signatureController.text);
+          //   },
+          //   child: Padding(
+          //     padding: EdgeInsets.symmetric(horizontal: 15),
+          //     child: Icon(Icons.send),
+          //   ),
+          // ),
+          PopupMenuButton(
+            onSelected: (val)=> popUpAction(val),
+            icon: Icon(Icons.more_vert,color: UIData.bcContactColor,),
+            itemBuilder: (BuildContext popUpContext) {
+              return [
+                createPopUpItem(0, Icons.restore, "Reset"),
+                createPopUpItem(1, Icons.save, "Save as Template"),
+                createPopUpItem(2, Icons.save, "Save as Pdf"),
+                createPopUpItem(3, FontAwesomeIcons.folderOpen, "Open Template"),
+                createPopUpItem(4, Icons.send, "Send Pdf"),
+                // createPopUpItem(4, Icons.delete, "Delete"),
+              ];
+            },
+          ),
+        ],
+      ),
+      body: ZefyrScaffold(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: form,
+        ),
+      ),
+    );
+  }
+}

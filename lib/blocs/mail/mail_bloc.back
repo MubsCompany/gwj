@@ -1,0 +1,322 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_html_to_pdf/flutter_html_to_pdf.dart';
+import 'package:flutter_mailer/flutter_mailer.dart';
+import 'package:template/blocs/global_bloc.dart';
+import 'package:template/models/ResponseData.dart';
+import 'package:template/utils/api.dart';
+import 'package:template/utils/bloc_provider.dart';
+import 'package:template/utils/global_function.dart';
+import 'package:template/utils/uidata.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:rxdart/subjects.dart';
+import 'package:share/share.dart';
+import 'package:toast/toast.dart';
+import 'package:path/path.dart';
+import 'package:zefyr/zefyr.dart';
+
+class MailBloc extends Object implements BlocBase {
+  @override
+  void dispose() {
+    _fileNameController.close();
+    _subjectController.close();
+    _messageController.close();
+    _signatureController.close();
+    _directoryController.close();
+    _listFileController.close();
+  }
+  
+  int indexFile = 1;
+  BehaviorSubject<String> _fileNameController = BehaviorSubject<String>();
+  Stream<String> get fileNameStream => _fileNameController.stream;
+
+  BehaviorSubject<List<String>> _listFileController = BehaviorSubject<List<String>>();
+  Stream<List<String>> get listFileStream => _listFileController.stream;
+
+  BehaviorSubject<Directory> _directoryController = BehaviorSubject<Directory>();
+  Stream<Directory> get directoryStream => _directoryController.stream;
+  Function(Directory) get saveDirectory => _directoryController.sink.add;
+  
+  BehaviorSubject<String> _subjectController = BehaviorSubject<String>();
+  Function(String) get saveSubject => _subjectController.sink.add;
+  Stream<String> get subjectStream => _subjectController.stream;
+  
+  BehaviorSubject<String> _messageController = BehaviorSubject<String>();
+  Function(String) get saveMessage => _messageController.sink.add;
+  Stream<String> get messageStream => _messageController.stream;
+  
+  BehaviorSubject<String> _signatureController = BehaviorSubject<String>();
+  Function(String) get saveSignature => _signatureController.sink.add;
+  Stream<String> get signatureStream => _signatureController.stream;
+  getDir({String dir = "template"})async{
+    Directory dirApp = await getExternalStorageDirectory();
+    Directory dirFile = Directory(dirApp.path+"/$dir");
+    bool exist = await dirFile.exists();
+    if(!exist){
+      dirFile.create();
+    }
+    _directoryController.sink.add(dirFile);
+    return dirFile;
+  }
+  String fileName = "template.gwj-template";
+  getFileName()async{
+    if(await fileAlreadyExist(fileName)){
+      fileName = "template - ${indexFile.toString()}.gwj-template";
+      indexFile++;
+      getFileName();
+    }
+    _fileNameController.sink.add(fileName);
+  }
+  Future<bool> fileAlreadyExist(String fileName,{String addDir = "template"})async{
+    Directory dir = await getDir(dir: addDir);
+    bool fileExist = await File(dir.path+"/"+fileName).exists();
+    return fileExist;
+  }
+  setFileName(BuildContext ctx,String fileName)async{
+    if(await fileAlreadyExist(fileName+".gwj-template")){
+      Toast.show("File Name Already Exist", ctx,duration: Toast.LENGTH_LONG);
+    }else{
+      _fileNameController.sink.add(fileName+".gwj-template");
+      Navigator.of(ctx).pop();
+    }
+  }
+
+  saveFile(GlobalKey<FormState> key)async{
+    GlobalFunction.showConfirmDialog(key.currentContext, ()async{
+      FocusScope.of(key.currentContext).requestFocus(new FocusNode());
+      try{
+        GlobalBloc.setLoadingController(true);
+        if(key.currentState.validate()){
+          key.currentState.save();
+          String subject = _subjectController.value;
+          String message = _messageController.value;
+          String signature = _signatureController.value;
+          String all = subject +
+                      UIData.dividerMail +
+                      message +
+                      UIData.dividerMail +
+                      signature;
+          String encryptAll = GlobalFunction.encryptString(all);
+          String fileName = _fileNameController.value;
+          Directory directory = await getDir();
+          final file = File(directory.path+"/"+fileName);
+          file.writeAsString(encryptAll);
+          Toast.show("File Has Been Saved", key.currentContext,duration:Toast.LENGTH_LONG);
+        }
+      } catch (e) {
+        print(e);
+      } finally {
+        GlobalBloc.setLoadingController(false);
+      }
+    },content: "Save File as : ${_fileNameController.value}"); 
+  }
+  openFile({TextEditingController subject,TextEditingController message,TextEditingController signature})async{
+    File file = await FilePicker.getFile(type: FileType.ANY,fileExtension: "gwj-template"); // will return a File object directly from the selected file
+    String result = await file.readAsString();
+    String decryptResult = GlobalFunction.decryptString(result);
+    _directoryController.sink.add(file.parent);
+    _fileNameController.sink.add(basename(file.path));
+
+    var exploded = decryptResult.split(UIData.dividerMail);
+    subject.text = exploded[0];
+    message.text = exploded[1];
+    signature.text = exploded[2];
+  }
+  // deleteFile(BuildContext ctx){
+  //   GlobalFunction.showConfirmDialog(ctx, ()async{
+  //     File file = File(_directoryController.value.path + "/" + _fileNameController.value);
+  //     if(await file.exists()){
+  //       file.delete();
+  //       Toast.show("File Successfully Deleted", ctx,duration: Toast.LENGTH_LONG);
+  //     }else{
+  //       Toast.show("File Not Found", ctx,duration: Toast.LENGTH_LONG);
+  //     }
+  //   });
+  // }
+  shareMail(GlobalKey<FormState> key){
+    FocusScope.of(key.currentContext).requestFocus(new FocusNode());
+      try{
+        GlobalBloc.setLoadingController(true);
+        if(key.currentState.validate()){
+          key.currentState.save();
+          String subject = _subjectController.value;
+          String message = _messageController.value;
+          String signature = _signatureController.value;
+          Share.share(message+"\n\n\n"+signature, subject: subject);
+        }
+      } catch (e) {
+        print(e);
+      } finally {
+        GlobalBloc.setLoadingController(false);
+      }
+  }
+/* 
+[{"insert":"ssjdjdhdjsjd","attributes":{"i":true}},{"insert":"\n"},{"insert":"Sksjsksjsskjsks","attributes":{"a":"https://google.com"}},{"insert":"\nSks"},{"insert":"\n","attributes":{"heading":1}},{"insert":"Sjsjsnsisjsksnsn"},{"insert":"\n","attributes":{"heading":2}},{"insert":"Ssnsjsjsjsjsjsnsjsjdj"},{"insert":"\n","attributes":{"heading":3}},{"insert":"Ssjsnsd"},{"insert":"\n","attributes":{"block":"ul"}},{"insert":"Dddjdjd"},{"insert":"\n","attributes":{"block":"ol"}},{"insert":"Jssbsjsjss"},{"insert":"\n","attributes":{"block":"ol"}},
+
+{"insert":"Dddddd"},{"insert":"\n","attributes":{"block":"quote"}},{"insert":"Jsjsjsnsjsjsjssjsjs"},{"insert":"\n","attributes":{"block":"code"}},{"insert":"​","attributes":{"embed":{"type":"hr"}}},{"insert":"\nJsjsjsjjsjsjskdkd\n"},{"insert":"​","attributes":{"embed":{"type":"hr"}}},{"insert":"\n"},{"insert":"​","attributes":{"embed":{"type":"image","source":"file:///storage/emulated/0/WhatsApp/Media/WhatsApp%20Images/IMG-20190822-WA0012.jpg"}}},{"insert":"\n\n"}]
+
+  b = bold (true)
+  i = italic (true)
+  a = href (link)
+  heading (1,2,3) = h1,h2,h3 (after content)
+  block = [ ul=> titik, ol=>angka, quote => garis samping, code = container:bc=>grey ] (after content)
+  embed = [type=>[hr,image],source=>source]
+*/
+  render(BuildContext ctx,var jsonData,String signature, String pdfFileName) async {
+    if(await fileAlreadyExist(pdfFileName+".pdf",addDir: "pdf")){
+      GlobalFunction.showConfirmDialog(ctx, ()async{
+        saveAsPdf(ctx, jsonData, signature, pdfFileName);
+      },content: "File already Exist, replace ?");
+    }else{
+      saveAsPdf(ctx, jsonData, signature, pdfFileName);
+    }
+  }
+  saveAsPdf(BuildContext ctx,var jsonData,String signature, String pdfFileName) async {
+    try {
+      var result = "";
+      for (var i = 0; i < jsonData.length; i++) {
+        var contentData = jsonData[i]["insert"];
+        var attributeData = jsonData[i]["attributes"];
+        var explodedContent = contentData.split("\n");
+        contentData = explodedContent.removeLast();
+        for (var data in explodedContent) {
+          result +=  data+"<br>";
+        }
+        if(attributeData != null){
+          if(attributeData['i'] != null)
+            contentData = wrapContent("i", contentData);
+          if(attributeData['b'] != null)
+            contentData = wrapContent("b", contentData);
+          if(![null,""].contains(attributeData['a']))
+            contentData = "<a href='${attributeData['a']}'>$contentData</a>";
+          if(![null,""].contains(attributeData['embed'])){
+            var embedType = attributeData['embed']['type'];
+            if(embedType == "hr"){
+              contentData = "<hr>";
+            }else if(embedType == "image"){
+              contentData = "<img src=\"${attributeData['embed']['source']}\" width=\"100\">\n";
+            }
+          }
+        }
+        int next = i+1;
+        if(next < jsonData.length){
+          if(jsonData[next]['attributes'] != null){
+            if(![null,""].contains(jsonData[next]['attributes']['heading'])){
+              contentData = wrapContent("h${jsonData[next]['attributes']['heading']}", contentData);  
+              i = i + 1;
+            }
+            if(![null,""].contains(jsonData[next]['attributes']['block'])){
+              String blockNow = jsonData[next]['attributes']['block'];
+              if(["ol","ul"].contains(blockNow)){
+                contentData = wrapContent("li", contentData);
+              }
+              contentData = wrapContent(blockNow, contentData);
+              i = i + 1;
+            }
+          }
+        }
+        contentData = contentData.replaceAll("\n", "<br>");
+        result += contentData;
+      }
+      result = result.replaceAll("</ul><ul>", "");
+      result = result.replaceAll("</ol><ol>", "");
+      result = result.replaceAll("</quote><quote>", "<br>");
+      result = result.replaceAll("</code><code>", "<br>");
+      
+      result = result.replaceAll("<quote>", "<div style=\"border-left: 3px solid #eee;padding-left: 10px\">");
+      result = result.replaceAll("</quote>", "</div>");
+      result = result.replaceAll("<code>", "<div style=\"background-color: #eee;padding: 10px\">");
+      result = result.replaceAll("</code>", "</div>");
+
+
+      Directory directory = await getDir(dir:"pdf");
+      var targetPath = directory.path;
+      var targetFileName = pdfFileName;
+      result += "<br><br><br>${signature.replaceAll("\n", "<br>")}";
+      var generatedPdfFile = await FlutterHtmlToPdf.convertFromHtmlContent(
+          result, targetPath, targetFileName);
+          print(generatedPdfFile);
+      Toast.show("File Successfully Saved", ctx,duration: Toast.LENGTH_LONG);
+    } catch (e) {
+      Toast.show("ERROR : $e", ctx,duration: Toast.LENGTH_LONG);
+      print(e);
+    }
+  }
+  String wrapContent(String tag,String content){
+    return "<$tag>$content</$tag>";
+  }
+  saveAsTemplate(GlobalKey<FormState> key,var jsonData)async{
+    try{
+      GlobalBloc.setLoadingController(true);
+      if(key.currentState.validate()){
+        key.currentState.save();
+        String subject = _subjectController.value;
+        String signature = _signatureController.value;
+        String all = subject +
+                    UIData.dividerMail +
+                    jsonData +
+                    UIData.dividerMail +
+                    signature;
+        String encryptAll = GlobalFunction.encryptString(all);
+
+        String fileName = _fileNameController.value;
+        Directory directory = await getDir();
+        final file = File(directory.path+"/"+fileName);
+        file.writeAsString(encryptAll);
+        Toast.show("File Successfully Saved", key.currentContext,duration:Toast.LENGTH_LONG);
+      }
+    } catch (e) {
+      print(e);
+    } finally {
+      GlobalBloc.setLoadingController(false);
+    }
+  }
+  listFile(String directory)async{
+    List<String> listFile = [];
+    Directory dir = await getDir(dir: directory);
+    var files = dir.listSync(recursive: false);
+    files.forEach((file) => listFile.add(basename(file.path)));
+    _listFileController.sink.add(listFile);
+  }
+  deleteFile(BuildContext ctx,String directory,String fileName){
+    GlobalFunction.showConfirmDialog(ctx, ()async{
+      Directory dir = await getDir(dir: directory);
+      File file = File(dir.path + "/" + fileName);
+      if(await file.exists()){
+        file.delete();
+        Toast.show("File Successfully Deleted", ctx,duration: Toast.LENGTH_LONG);
+        listFile(directory);
+      }else{
+        Toast.show("File Not Found", ctx,duration: Toast.LENGTH_LONG);
+      }
+    });
+  }
+  openTemplate(BuildContext ctx,Function(String subject,dynamic message,String signature) setContent,String templateName)async{
+    Directory dir = await getDir();
+    File file = File(dir.path + "/" + templateName); 
+    String result = await file.readAsString();
+    String decryptResult = GlobalFunction.decryptString(result);
+    _fileNameController.sink.add(basename(file.path));
+
+    var exploded = decryptResult.split(UIData.dividerMail);
+    setContent(exploded[0],jsonDecode(exploded[1]),exploded[2]);
+    Navigator.of(ctx).pop();
+  }
+  sendPdf(String pdfName)async{
+    Directory dir = await getDir(dir: "pdf");
+    final MailOptions mailOptions = MailOptions(
+      // body: 'a long body for the email <br> with a subset of HTML',
+      subject: "",
+      // recipients: ['example@example.com'],
+      // isHTML: true,
+      // bccRecipients: ['other@example.com'],
+      // ccRecipients: ['third@example.com'],
+      attachments: [ dir.path + "/" + pdfName, ],
+    );
+    await FlutterMailer.send(mailOptions);
+  }
+}
